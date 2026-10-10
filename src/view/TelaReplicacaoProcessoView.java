@@ -1,8 +1,20 @@
 package view;
 
+import database.dao.ReplicacaoProcessoDAO;
+import database.model.TB_REPLICACAO_PROCESSO;
+
 import javax.swing.*;
+import java.sql.Connection;
+import java.sql.SQLException;
 
 public class TelaReplicacaoProcessoView extends JFrame {
+
+    private enum ModoTela {NENHUM, INSERT, UPDATE}
+    private ModoTela modoTela = ModoTela.NENHUM;
+
+    private final Connection conn;
+    private final ReplicacaoProcessoDAO dao;
+
     private JTextField txfId;
     private JTextField txfProcesso;
     private JTextField txfDescricao;
@@ -13,7 +25,11 @@ public class TelaReplicacaoProcessoView extends JFrame {
     private JButton btnBuscar;
     private JButton btnExcluir;
 
-    public TelaReplicacaoProcessoView(){
+    public TelaReplicacaoProcessoView(Connection conn) throws SQLException {
+
+        this.conn = conn;
+        this.dao = new ReplicacaoProcessoDAO(conn);
+
         setTitle("Cadastro de Processos");
         setSize(620,320);
 
@@ -76,9 +92,136 @@ public class TelaReplicacaoProcessoView extends JFrame {
         chkHabilitado.setBounds(140, 175, 80, 25);
         getContentPane().add(chkHabilitado);
 
-    }
+        // ESTADO INICIAL dos componentes
+        txfId.setEnabled(false); // ID sempre bloqueado (normalmente PK/serial)
+        txfProcesso.setEnabled(false);
+        txfDescricao.setEnabled(false);
+        chkHabilitado.setEnabled(false);
+        btnSalvar.setEnabled(false);
+        btnExcluir.setEnabled(false);
 
-    public static void main(String[] args){
-        new TelaReplicacaoProcessoView().setVisible(true);
+        // AÇÕES dos BOTÕES da tela
+        btnAdicionar.addActionListener(e -> {
+            modoTela = ModoTela.INSERT;
+
+            txfId.setText("");
+            txfProcesso.setText("");
+            txfDescricao.setText("");
+            chkHabilitado.setSelected(true);
+            txfProcesso.setEnabled(true);
+            txfDescricao.setEnabled(true);
+            chkHabilitado.setEnabled(true);
+            btnSalvar.setEnabled(true);
+            btnExcluir.setEnabled(false);
+        });
+
+        btnSalvar.addActionListener(e -> {
+            try {
+                // validação mínima
+                if (txfProcesso.getText().trim().isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Informe o PROCESSO.");
+                    return;
+                }
+
+                TB_REPLICACAO_PROCESSO p = new TB_REPLICACAO_PROCESSO();
+                p.setProcesso(txfProcesso.getText().trim());
+                p.setDescricao(txfDescricao.getText().trim());
+                p.setHabilitado(chkHabilitado.isSelected());
+
+                if (modoTela == ModoTela.INSERT) {
+                    dao.insert(p);
+                    JOptionPane.showMessageDialog(this, "Inserido com sucesso.");
+                } else if (modoTela == ModoTela.UPDATE) {
+                    if (txfId.getText().trim().isEmpty()) {
+                        JOptionPane.showMessageDialog(this, "ID não carregado para update.");
+                        return;
+                    }
+                    p.setId(Long.parseLong(txfId.getText().trim()));
+                    dao.update(p);
+                    JOptionPane.showMessageDialog(this, "Atualizado com sucesso.");
+                } else {
+                    JOptionPane.showMessageDialog(this, "Clique em ADICIONAR ou BUSCAR antes de salvar.");
+                    return;
+                }
+
+                // após salvar, trava os campos
+                modoTela = ModoTela.NENHUM;
+                txfProcesso.setEnabled(false);
+                txfDescricao.setEnabled(false);
+                chkHabilitado.setEnabled(false);
+                btnSalvar.setEnabled(false);
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Erro ao salvar: " + ex.getMessage());
+            }
+        });
+
+        btnExcluir.addActionListener(e -> {
+            try {
+                if (txfId.getText().trim().isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Nenhum registro carregado para excluir.");
+                    return;
+                }
+
+                int op = JOptionPane.showConfirmDialog(this, "Confirma exclusão?", "Excluir",
+                        JOptionPane.YES_NO_OPTION);
+
+                if (op != JOptionPane.YES_OPTION) return;
+
+                long id = Long.parseLong(txfId.getText().trim());
+                dao.delete(id);
+
+                JOptionPane.showMessageDialog(this, "Excluído com sucesso.");
+
+                // limpa e trava
+                modoTela = ModoTela.NENHUM;
+                txfId.setText("");
+                txfProcesso.setText("");
+                txfDescricao.setText("");
+                chkHabilitado.setSelected(false);
+
+                txfProcesso.setEnabled(false);
+                txfDescricao.setEnabled(false);
+                chkHabilitado.setEnabled(false);
+
+                btnSalvar.setEnabled(false);
+                btnExcluir.setEnabled(false);
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Erro ao excluir: " + ex.getMessage());
+            }
+        });
+
+        btnBuscar.addActionListener(e -> {
+            try {
+                // Cria uma DIALOG como tela para a consulta
+                ConsultaProcessoDialog dlg = new ConsultaProcessoDialog(this, dao);
+                dlg.setVisible(true);
+
+                TB_REPLICACAO_PROCESSO selecionado = dlg.getSelecionado();
+                if (selecionado == null) return;
+
+                // carrega na tela e entra em modo UPDATE
+                modoTela = ModoTela.UPDATE;
+
+                txfId.setText(String.valueOf(selecionado.getId()));
+                txfProcesso.setText(selecionado.getProcesso());
+                txfDescricao.setText(selecionado.getDescricao());
+                chkHabilitado.setSelected(selecionado.isHabilitado());
+
+                txfProcesso.setEnabled(true);
+                txfDescricao.setEnabled(true);
+                chkHabilitado.setEnabled(true);
+
+                btnSalvar.setEnabled(true);
+                btnExcluir.setEnabled(true);
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Erro ao buscar: " + ex.getMessage());
+            }
+        });
     }
 }
