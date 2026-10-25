@@ -1,10 +1,25 @@
 package view;
 
+import database.dao.DirecaoDAO;
+import database.dao.ReplicacaoProcessoDAO;
+import database.model.TB_REPLICACAO_DIRECAO;
 import database.model.TB_REPLICACAO_PROCESSO;
+import seguranca.CriptografiaSenha;
+import seguranca.UrlJdbc;
 
 import javax.swing.*;
+import java.sql.Connection;
+import java.util.ArrayList;
+import java.util.Arrays;
 
 public class TelaReplicacaoDirecaoView extends JFrame {
+
+    private enum ModoTela { NENHUM, INSERT, UPDATE }
+    private ModoTela modo = ModoTela.NENHUM;
+
+    private final Connection conn;
+    private final DirecaoDAO daoDirecao;
+    private final ReplicacaoProcessoDAO daoProcesso;
 
     private JTextField txtId;
     private JComboBox<TB_REPLICACAO_PROCESSO> cbProcesso;
@@ -24,7 +39,15 @@ public class TelaReplicacaoDirecaoView extends JFrame {
     private JButton btnSalvar;
     private JButton btnExcluir;
 
-    public TelaReplicacaoDirecaoView(){
+    // Registro aberto pelo BUSCAR. Guarda as senhas já criptografadas para manter quando o campo ficar em branco.
+    private TB_REPLICACAO_DIRECAO direcaoCarregada;
+
+    public TelaReplicacaoDirecaoView(Connection conn) throws Exception {
+
+        this.conn = conn;
+        this.daoDirecao = new DirecaoDAO(conn);
+        this.daoProcesso = new ReplicacaoProcessoDAO(conn);
+
         setTitle("TB_REPLICACAO_DIRECAO");
         setSize(760, 460);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
@@ -140,9 +163,261 @@ public class TelaReplicacaoDirecaoView extends JFrame {
 
         // CARREGA COMBO PROCESSOS
         cbProcesso.removeAllItems();
+        ArrayList<TB_REPLICACAO_PROCESSO> processos = daoProcesso.selectAll();
+        for (TB_REPLICACAO_PROCESSO p : processos) {
+            cbProcesso.addItem(p);
+        }
+
+        // ESTADO INICIAL
+        txtId.setEnabled(false); // BIGSERIAL
+        cbProcesso.setEnabled(false);
+        chkHabilitado.setEnabled(false);
+
+        txtDirecaoOrigem.setEnabled(false);
+        txtUsuarioOrigem.setEnabled(false);
+        txtSenhaOrigem.setEnabled(false);
+
+        txtDirecaoDestino.setEnabled(false);
+        txtUsuarioDestino.setEnabled(false);
+        txtSenhaDestino.setEnabled(false);
+
+        btnSalvar.setEnabled(false);
+        btnExcluir.setEnabled(false);
+
+        // A senha gravada não volta para a tela. Na edição, campo em branco mantém a senha atual.
+        txtSenhaOrigem.setToolTipText("Na edição, deixe em branco para manter a senha atual.");
+        txtSenhaDestino.setToolTipText("Na edição, deixe em branco para manter a senha atual.");
+
+        // =========================
+        // AÇÕES
+        // =========================
+
+        btnAdicionar.addActionListener(e -> {
+            modo = ModoTela.INSERT;
+            direcaoCarregada = null;
+
+            txtId.setText("");
+            if (cbProcesso.getItemCount() > 0) cbProcesso.setSelectedIndex(0);
+
+            chkHabilitado.setSelected(true);
+
+            txtDirecaoOrigem.setText("");
+            txtUsuarioOrigem.setText("");
+            txtSenhaOrigem.setText("");
+
+            txtDirecaoDestino.setText("");
+            txtUsuarioDestino.setText("");
+            txtSenhaDestino.setText("");
+
+            cbProcesso.setEnabled(true);
+            chkHabilitado.setEnabled(true);
+
+            txtDirecaoOrigem.setEnabled(true);
+            txtUsuarioOrigem.setEnabled(true);
+            txtSenhaOrigem.setEnabled(true);
+
+            txtDirecaoDestino.setEnabled(true);
+            txtUsuarioDestino.setEnabled(true);
+            txtSenhaDestino.setEnabled(true);
+
+            btnSalvar.setEnabled(true);
+            btnExcluir.setEnabled(false);
+        });
+
+        btnSalvar.addActionListener(e -> {
+            try {
+                if (cbProcesso.getSelectedItem() == null) {
+                    JOptionPane.showMessageDialog(this, "Selecione um PROCESSO.");
+                    return;
+                }
+                if (txtDirecaoOrigem.getText().trim().isEmpty() || txtDirecaoDestino.getText().trim().isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Informe DIRECAO_ORIGEM e DIRECAO_DESTINO.");
+                    return;
+                }
+                try {
+                    UrlJdbc.validar(txtDirecaoOrigem.getText());
+                    UrlJdbc.validar(txtDirecaoDestino.getText());
+                } catch (IllegalArgumentException ex) {
+                    JOptionPane.showMessageDialog(this, ex.getMessage());
+                    return;
+                }
+
+                TB_REPLICACAO_PROCESSO pSel = (TB_REPLICACAO_PROCESSO) cbProcesso.getSelectedItem();
+
+                TB_REPLICACAO_DIRECAO d = new TB_REPLICACAO_DIRECAO();
+                d.setProcesso_id(pSel.getId());
+                d.setHabilitado(chkHabilitado.isSelected());
+
+                d.setDirecao_origem(txtDirecaoOrigem.getText().trim());
+                d.setUsuario_origem(txtUsuarioOrigem.getText().trim());
+                d.setSenha_origem(senhaParaGravar(txtSenhaOrigem,
+                        direcaoCarregada == null ? null : direcaoCarregada.getSenha_origem()));
+
+                d.setDirecao_destino(txtDirecaoDestino.getText().trim());
+                d.setUsuario_destino(txtUsuarioDestino.getText().trim());
+                d.setSenha_destino(senhaParaGravar(txtSenhaDestino,
+                        direcaoCarregada == null ? null : direcaoCarregada.getSenha_destino()));
+
+                if (modo == ModoTela.INSERT) {
+                    daoDirecao.insert(d);
+                    JOptionPane.showMessageDialog(this, "Inserido com sucesso.");
+                } else if (modo == ModoTela.UPDATE) {
+                    if (txtId.getText().trim().isEmpty()) {
+                        JOptionPane.showMessageDialog(this, "ID não carregado para update.");
+                        return;
+                    }
+                    d.setId(Long.parseLong(txtId.getText().trim()));
+                    daoDirecao.update(d);
+                    JOptionPane.showMessageDialog(this, "Atualizado com sucesso.");
+                } else {
+                    JOptionPane.showMessageDialog(this, "Clique em ADICIONAR ou BUSCAR antes de salvar.");
+                    return;
+                }
+
+                // trava após salvar
+                modo = ModoTela.NENHUM;
+                direcaoCarregada = null;
+                txtSenhaOrigem.setText("");
+                txtSenhaDestino.setText("");
+
+                cbProcesso.setEnabled(false);
+                chkHabilitado.setEnabled(false);
+
+                txtDirecaoOrigem.setEnabled(false);
+                txtUsuarioOrigem.setEnabled(false);
+                txtSenhaOrigem.setEnabled(false);
+
+                txtDirecaoDestino.setEnabled(false);
+                txtUsuarioDestino.setEnabled(false);
+                txtSenhaDestino.setEnabled(false);
+
+                btnSalvar.setEnabled(false);
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Erro ao salvar: " + ex.getMessage());
+            }
+        });
+
+        btnExcluir.addActionListener(e -> {
+            try {
+                if (txtId.getText().trim().isEmpty()) {
+                    JOptionPane.showMessageDialog(this, "Nenhum registro carregado para excluir.");
+                    return;
+                }
+
+                int op = JOptionPane.showConfirmDialog(this, "Confirma exclusão?", "Excluir",
+                        JOptionPane.YES_NO_OPTION);
+
+                if (op != JOptionPane.YES_OPTION) return;
+
+                long id = Long.parseLong(txtId.getText().trim());
+                daoDirecao.delete(id);
+
+                JOptionPane.showMessageDialog(this, "Excluído com sucesso.");
+
+                modo = ModoTela.NENHUM;
+                direcaoCarregada = null;
+
+                txtId.setText("");
+                if (cbProcesso.getItemCount() > 0) cbProcesso.setSelectedIndex(0);
+                chkHabilitado.setSelected(false);
+
+                txtDirecaoOrigem.setText("");
+                txtUsuarioOrigem.setText("");
+                txtSenhaOrigem.setText("");
+
+                txtDirecaoDestino.setText("");
+                txtUsuarioDestino.setText("");
+                txtSenhaDestino.setText("");
+
+                cbProcesso.setEnabled(false);
+                chkHabilitado.setEnabled(false);
+
+                txtDirecaoOrigem.setEnabled(false);
+                txtUsuarioOrigem.setEnabled(false);
+                txtSenhaOrigem.setEnabled(false);
+
+                txtDirecaoDestino.setEnabled(false);
+                txtUsuarioDestino.setEnabled(false);
+                txtSenhaDestino.setEnabled(false);
+
+                btnSalvar.setEnabled(false);
+                btnExcluir.setEnabled(false);
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Erro ao excluir: " + ex.getMessage());
+            }
+        });
+
+        btnBuscar.addActionListener(e -> {
+            try {
+                ConsultaDirecaoDialog dlg = new ConsultaDirecaoDialog(this, daoDirecao);
+                dlg.setVisible(true);
+
+                TB_REPLICACAO_DIRECAO sel = dlg.getSelecionado();
+                if (sel == null) return;
+
+                modo = ModoTela.UPDATE;
+                direcaoCarregada = sel;
+
+                txtId.setText(String.valueOf(sel.getId()));
+                chkHabilitado.setSelected(sel.isHabilitado());
+
+                txtDirecaoOrigem.setText(sel.getDirecao_origem());
+                txtUsuarioOrigem.setText(sel.getUsuario_origem());
+                txtSenhaOrigem.setText("");
+
+                txtDirecaoDestino.setText(sel.getDirecao_destino());
+                txtUsuarioDestino.setText(sel.getUsuario_destino());
+                txtSenhaDestino.setText("");
+
+                // seleciona processo no combo pelo id
+                long pid = sel.getProcesso_id();
+                for (int i = 0; i < cbProcesso.getItemCount(); i++) {
+                    TB_REPLICACAO_PROCESSO item = cbProcesso.getItemAt(i);
+                    if (item != null && item.getId() == pid) {
+                        cbProcesso.setSelectedIndex(i);
+                        break;
+                    }
+                }
+
+                cbProcesso.setEnabled(true);
+                chkHabilitado.setEnabled(true);
+
+                txtDirecaoOrigem.setEnabled(true);
+                txtUsuarioOrigem.setEnabled(true);
+                txtSenhaOrigem.setEnabled(true);
+
+                txtDirecaoDestino.setEnabled(true);
+                txtUsuarioDestino.setEnabled(true);
+                txtSenhaDestino.setEnabled(true);
+
+                btnSalvar.setEnabled(true);
+                btnExcluir.setEnabled(true);
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Erro ao buscar: " + ex.getMessage());
+            }
+        });
     }
 
-    static void main(String[] args) {
-        new TelaReplicacaoDirecaoView().setVisible(true);
+    /**
+     * Senha digitada: criptografa antes de ir para o banco.
+     * Campo vazio: mantém a senha já gravada (na edição) ou grava vazio (no cadastro novo).
+     */
+    private static String senhaParaGravar(JPasswordField campo, String senhaGravada) {
+        char[] digitada = campo.getPassword();
+        try {
+            if (digitada.length == 0) {
+                return senhaGravada == null ? "" : senhaGravada;
+            }
+            return CriptografiaSenha.criptografar(new String(digitada));
+        } finally {
+            // Apaga a cópia da senha que o JPasswordField devolveu.
+            Arrays.fill(digitada, '\0');
+        }
     }
 }

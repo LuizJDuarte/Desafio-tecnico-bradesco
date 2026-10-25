@@ -97,6 +97,7 @@ public class DirecaoDAO {
         pstUpdate.setString(7, tb.getSenha_destino());
         pstUpdate.setBoolean(8, tb.isHabilitado());
         pstUpdate.setLong(9, tb.getId());
+        pstUpdate.executeUpdate();
     }
 
     public void delete(Long id) throws SQLException {

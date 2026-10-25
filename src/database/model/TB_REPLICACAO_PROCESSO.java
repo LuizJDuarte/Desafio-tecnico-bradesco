@@ -7,15 +7,8 @@ public class TB_REPLICACAO_PROCESSO {
     private String descricao;
     private boolean habilitado;
 
-    public TB_REPLICACAO_PROCESSO(){
+    public TB_REPLICACAO_PROCESSO() {
 
-    }
-
-    public TB_REPLICACAO_PROCESSO(long id, String processo, String descricao, boolean habilitado) {
-        this.id = id;
-        this.processo = processo;
-        this.descricao = descricao;
-        this.habilitado = habilitado;
     }
 
     public long getId() {
@@ -52,11 +45,6 @@ public class TB_REPLICACAO_PROCESSO {
 
     @Override
     public String toString() {
-        return "TB_REPLICACAO_PROCESSO{" +
-                "id=" + id +
-                ", processo='" + processo + '\'' +
-                ", descricao='" + descricao + '\'' +
-                ", habilitado=" + habilitado +
-                '}';
+        return "TB_REPLICACAO_PROCESSO{" + "id=" + id + ", processo=" + processo + ", descricao=" + descricao + ", habilitado=" + habilitado + '}';
     }
 }

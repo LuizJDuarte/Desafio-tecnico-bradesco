@@ -7,12 +7,14 @@ public class TB_REPLICACAO_DIRECAO {
     private String direcao_destino;
     private String usuario_origem;
     private String usuario_destino;
+    // Senhas como estão no banco: criptografadas (enc:v1:...). Ver seguranca.CriptografiaSenha.
     private String senha_origem;
     private String senha_destino;
     private boolean habilitado;
     private long processo_id;
 
     public TB_REPLICACAO_DIRECAO() {
+
     }
 
     public long getId() {

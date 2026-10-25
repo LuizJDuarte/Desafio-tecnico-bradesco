@@ -12,7 +12,7 @@ public class ProcessoTabelaDAO {
 
     private Connection conn;
 
-    private static final String SQL_SELECT_BY_ID_PROCESSO_HABILITADO =
+    private static final String SQL_SELECT_BY_PROCESSO_HABILITADO =
             "SELECT * FROM TB_REPLICACAO_PROCESSO_TABELA WHERE PROCESSO_ID = ? AND HABILITADO = TRUE ORDER BY ORDEM";
 
     private static final String SQL_SELECT_ALL =
@@ -22,7 +22,7 @@ public class ProcessoTabelaDAO {
             "SELECT * FROM TB_REPLICACAO_PROCESSO_TABELA WHERE ID = ?";
 
     private static final String SQL_INSERT =
-            "INSERT INTO TB_REPLICACAO_PROCESSO_TABELA (PROCESSO_ID, TABELA_ORIGEM, TABELA_DESTINO, ORDEM, HABILITADO, DS_WHERE)";
+            "INSERT INTO TB_REPLICACAO_PROCESSO_TABELA (PROCESSO_ID, TABELA_ORIGEM, TABELA_DESTINO, ORDEM, HABILITADO, DS_WHERE) VALUES (?, ?, ?, ?, ?, ?)";
 
     private static final String SQL_UPDATE =
             "UPDATE TB_REPLICACAO_PROCESSO_TABELA SET PROCESSO_ID = ?, TABELA_ORIGEM = ?, TABELA_DESTINO = ?, ORDEM = ?, HABILITADO = ?, DS_WHERE = ? WHERE ID = ?";
@@ -39,7 +39,7 @@ public class ProcessoTabelaDAO {
 
     public ProcessoTabelaDAO(Connection conn) throws SQLException {
         this.conn = conn;
-        this.pstSelectByProcessoHabilitado = conn.prepareStatement(SQL_SELECT_BY_ID_PROCESSO_HABILITADO);
+        this.pstSelectByProcessoHabilitado = conn.prepareStatement(SQL_SELECT_BY_PROCESSO_HABILITADO);
         this.pstSelectAll = conn.prepareStatement(SQL_SELECT_ALL);
         this.pstSelectById = conn.prepareStatement(SQL_SELECT_BY_ID);
         this.pstInsert = conn.prepareStatement(SQL_INSERT);
@@ -47,11 +47,11 @@ public class ProcessoTabelaDAO {
         this.pstDelete = conn.prepareStatement(SQL_DELETE);
     }
 
-    public ArrayList<TB_REPLICACAO_PROCESSO_TABELA> selectByProcessoHabilitado(long processoID) throws SQLException {
+    public ArrayList<TB_REPLICACAO_PROCESSO_TABELA> selectByProcessoHabilitado(long processoId) throws SQLException {
         ArrayList<TB_REPLICACAO_PROCESSO_TABELA> lista = new ArrayList<>();
-        pstSelectByProcessoHabilitado.setLong(1, processoID);
-        try (ResultSet rs = pstSelectByProcessoHabilitado.executeQuery()){
-            while (rs.next()){
+        pstSelectByProcessoHabilitado.setLong(1, processoId);
+        try (ResultSet rs = pstSelectByProcessoHabilitado.executeQuery()) {
+            while (rs.next()) {
                 lista.add(map(rs));
             }
         }
